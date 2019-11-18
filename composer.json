@@ -1,0 +1,14 @@
+{
+    "name": "arthur/sec-login",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Arthur L",
+            "email": "arthurifccl@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.2.0",
+        "ext-pdo_sqlite": "*"
+    }
+}
