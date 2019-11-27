@@ -1,39 +1,30 @@
 <?php
 require_once "vendor/autoload.php";
-
 session_start();
 
-if (isset($_GET["logout"])){
-    session_destroy();
-    header('Location: '.$_SERVER['PHP_SELF']);
-    exit();
-}
 
-if (isset($_POST["username"]) && isset($_POST["password"]) && isset($_POST["2fa"])){
+$g = new \Sonata\GoogleAuthenticator\GoogleAuthenticator();
+$secret = $g->generateSecret();
+
+
+if (isset($_POST["username"]) && isset($_POST["password"]) && isset($_POST["2fa"]) && isset($_POST["2fas"])){
+    
+    //Checa codigo de autenticação de 2 fatores
+    if (!$g->checkCode($_POST["2fas"], $_POST["2fa"])){
+        $erro = "Codigo do 2FA invalido.";
+    }
 
     $db = new PDO('sqlite:login.db');
-
-    $stmt = $db->prepare("SELECT * FROM users WHERE username = :username AND password = :password LIMIT 1");
+    $stmt = $db->prepare("INSERT INTO users (username,password,auth_token) VALUES (:username,:password,:secret);");
     $stmt->bindValue(":username", $_POST["username"], PDO::PARAM_STR);
-    $stmt->bindValue(":password", md5($_POST["password"]),PDO::PARAM_STR);
-    if ($stmt->execute()){
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        //Usuário existe.
-        if (isset($user["id"])){
-            $g = new \Sonata\GoogleAuthenticator\GoogleAuthenticator();
-            //Checa codigo de autenticação de 2 fatores
-            if ($g->checkCode($user["auth_token"], $_POST["2fa"])){
+    $stmt->bindValue(":password", md5($_POST["password"]), PDO::PARAM_STR);
+    $stmt->bindValue(":secret", $_POST["2fas"], PDO::PARAM_STR);
 
-                $_SESSION["id"] = $user["id"];
-                $_SESSION["username"] = $_POST["username"];
-                header('Location: '.$_SERVER['PHP_SELF']);
-                exit();
-            } else {
-                $error = "Codigo do 2FA invalido.";
-            }
-        } else {
-            $error = "Login/Senha incorreto.";
-        }
+    if ($stmt->execute()){
+        $_SESSION["id"] = $user["id"];
+        $_SESSION["username"] = $_POST["username"];
+        header('Location: index.php');
+        exit();
     } else {
         $error = "Erro interno.";
     }
@@ -58,7 +49,7 @@ if (isset($_POST["username"]) && isset($_POST["password"]) && isset($_POST["2fa"
         </div>
     <?php else:?>
         <form method="POST" class="form-signin">
-            <h1 class="h3 mb-3 font-weight-normal">Login 2 Fatores</h1>
+            <h1 class="h3 mb-3 font-weight-normal">Registro</h1>
             <?php if (isset($error) && $error):?>
                 <div class="alert alert-danger" role="alert">
                     <?=$error?>
@@ -68,14 +59,14 @@ if (isset($_POST["username"]) && isset($_POST["password"]) && isset($_POST["2fa"
             <input type="text" name="username" id="inputLogin" class="form-control" placeholder="Login" required="" autofocus="">
             <label for="inputPassword" class="sr-only">Senha</label>
             <input type="password" name="password" id="inputPassword" class="form-control" placeholder="Senha" required="">
-            <label for="inputPassword" class="sr-only">2FA</label>
-            <input type="text" name="2fa" class="form-control" placeholder="Token 2FA" required="">
             <br>
-            <button class="btn btn-lg btn-primary btn-block" type="submit">Logar</button>
-            <a href="register.php">Não possui conta? Registre-se</a>
+            <img src="<?=\Sonata\GoogleAuthenticator\GoogleQrUrl::generate(md5(uniqid()), $secret,'Exemplo');?>">
+            <input type="text" name="2fa" class="form-control" placeholder="2FA" required="">
+            <input type="hidden" name="2fas" value="<?=$secret?>">
+            <br>
+            <button class="btn btn-lg btn-primary btn-block" type="submit">Registrar</button>
+            <a href="index.php">Já possui conta? Logue</a>
             <p class="mt-5 mb-3 text-muted">© 2017-2019</p>
-
-
 
         </form>
     <?php endif?>
